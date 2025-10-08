@@ -185,6 +185,7 @@ def chat():
 
     if not session_id:
         session_id = str(get_next_session_id())
+        return jsonify({"session_id": session_id, "message": "Nova sessão iniciada. Envie sua mensagem novamente."}), 200
 
     if not user_message:
         return jsonify({"error": "A mensagem do usuário está vazia!"}), 400
