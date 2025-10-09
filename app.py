@@ -16,12 +16,23 @@ from langchain.prompts.few_shot import FewShotChatMessagePromptTemplate
 from langchain.memory.chat_message_histories import RedisChatMessageHistory
 import redis
 
-redis_client = redis.StrictRedis(host=os.getenv("HOST_REDIS"), port=os.getenv("PORT_REDIS"), db=0)
+load_dotenv()
+
+REDIS_HOST = os.getenv("REDIS_HOST")
+REDIS_PORT = os.getenv("REDIS_PORT")
+REDIS_USER = os.getenv("REDIS_USER", "default")
+REDIS_PASSWORD = os.getenv("REDIS_PASSWORD")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+
+REDIS_URL = os.getenv("REDIS_URL")
+
+redis_client = redis.from_url(
+    REDIS_URL,
+    decode_responses=True
+)
 
 app = Flask(__name__)
 CORS(app)
-
-load_dotenv()
 
 store = {}
 
@@ -29,20 +40,21 @@ SESSION_ID_KEY = "next_session_id"
 
 
 def get_next_session_id():
-    # Incrementa o contador e retorna o novo valor
     return redis_client.incr(SESSION_ID_KEY)
 
 
 def get_session_history(session_id) -> ChatMessageHistory:
-    return RedisChatMessageHistory(session_id,
-                                   url="redis://" + os.getenv("HOST_REDIS") + ":" + os.getenv("PORT_REDIS") + "/0")
+    return RedisChatMessageHistory(
+        session_id=session_id,
+        url=REDIS_URL,
+    )
 
 
 llm = ChatGoogleGenerativeAI(
     model="gemini-2.5-flash",
     temperature=0.7,
     top_p=0.95,
-    google_api_key=os.getenv("GEMINI_API_KEY")
+    google_api_key=GEMINI_API_KEY
 )
 
 system_prompt = ("system",
@@ -53,15 +65,15 @@ system_prompt = ("system",
              Você utiliza um tom firme e direto, sendo sempre empático.
              Seu objetivo é auxiliar os usuários a entender a ideia e conhecer os integrantes da equipe, oferecendo respostas práticos e confiáveis que transmitam segurança.
              Suas respostas devem ser curtas, claras e úteis, evitando informações desnecessárias.
-             
-             
+
+
              ### TAREFAS
              - Responder perguntas sobre o aplicativo IGesta, sua história, ideia, funcionalidades e desenvolvedores.
              - Utilizar apenas as informações fornecidas pela equipe/projeto, evitando conteúdos externos.
              - Resumir perguntas longas do usuário antes de responder.
              - Fornecer respostas objetivas e confiáveis.
              - Evite informações desnecessárias.
-             
+
              ### Regras
              - Seja empático e responsável.
              - Nunca use palavras ofensivas nas respostas.
@@ -69,17 +81,17 @@ system_prompt = ("system",
              - Nunca invente informações, sempre consulte os dados disponíveis.
              - Se receber perguntas fora do escopo de história da empresa ou informações sobre os integrantes, deve responder educadamente que não pode responder.
              - Sempre que possível mantenha interatividade com o usuário, fazendo perguntas de continuação ao final das respostas.
-             
-             
+
+
              ### FORMATO DE RESPOSTA
              - <sua resposta será 1 frase objetiva sobre a pergunta do usuário em relação ao IGesta.>
              - *Recomendação*: 
              <sugira uma ação prática: explorar funcionalidade, conhecer a equipe, entender um diferencial, etc.>
              - *Acompanhamento* (opcional): 
              <quando não houver informações suficientes, houver várias respostas possíveis ou for o usuário precisar de ajuda extra; mostrar mais detalhes, redirecionar para seção do site ou indicar contato com a equipe.>
-             
-             
-             
+
+
+
              ### HISTÓRICO DA CONVERSA
              {chat_history}
              """
@@ -185,7 +197,8 @@ def chat():
 
     if not session_id:
         session_id = str(get_next_session_id())
-        return jsonify({"session_id": session_id, "message": "Nova sessão iniciada. Envie sua mensagem novamente."}), 200
+        return jsonify(
+            {"session_id": session_id, "message": "Nova sessão iniciada. Envie sua mensagem novamente."}), 200
 
     if not user_message:
         return jsonify({"error": "A mensagem do usuário está vazia!"}), 400
