@@ -20,7 +20,7 @@ load_dotenv()
 
 REDIS_HOST = os.getenv("REDIS_HOST")
 REDIS_PORT = os.getenv("REDIS_PORT")
-REDIS_USER = os.getenv("REDIS_USER", "default")
+REDIS_USER = os.getenv("REDIS_USER")
 REDIS_PASSWORD = os.getenv("REDIS_PASSWORD")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
@@ -162,10 +162,10 @@ fewshots = FewShotChatMessagePromptTemplate(
 )
 
 prompt = ChatPromptTemplate.from_messages([
-    system_prompt,  # system prompt
-    fewshots,  # Shots human/ai
-    MessagesPlaceholder("chat_history"),  # memória
-    ("human", "{usuario}")  # user prompt
+    system_prompt,
+    fewshots,
+    MessagesPlaceholder("chat_history"),
+    ("human", "{usuario}")
 ])
 
 base_chain = prompt | llm | StrOutputParser()
@@ -176,12 +176,6 @@ chain = RunnableWithMessageHistory(
     input_messages_key="usuario",
     history_messages_key="chat_history"
 )
-
-
-# ----------------------------------------------------
-# Etapa 2: Use as variáveis globais nas rotas
-# ----------------------------------------------------
-
 
 @app.route("/chat", methods=["POST"])
 def chat():
