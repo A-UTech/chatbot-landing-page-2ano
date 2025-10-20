@@ -2,42 +2,38 @@
 
 
 ## Descrição
-Breve explicação sobre o projeto:
-
- ### O que é o chatbot?
-
-&nbsp; O chatbot é uma interface da landing page do AU Tech, um chat para aqueles que acessarem o site.
+O chatbot que auxilia os usuários do site da A&U Tech a esclarecer dúvidas sobre a empresa, seus funcionários e a missão.
 
  ### Qual problema ele resolve?
 
-&nbsp; O chatbot atua no sentido de dúvida dos usuários. Qualquer dúvida a respeito da empresa e das informações do site, o chat pode ajudar a esclarecer. 
-
-## Demonstração < nao sei se deixa
-<!-- Adicione imagem, GIF ou link de demo -->
-Exemplo:
+&nbsp; O chatbot atua no sentido de dúvida dos usuários. Qualquer dúvida a respeito da empresa e das informações do site, o chat pode ajudar a esclarecer.
 
 ## Funcionalidades
 - 💭 Dúvidas do projeto IGesta
 - 💡 Dúvidas da empresa A&U Tech
+- 📊 Informações sobre funcionários
 
 ## Tecnologias Utilizadas
-**Backend:**    | preencher |
+- Flask
+- Python
+- Langchain
+- Redis
 
+## Exemplo de requisição e resposta
+### Requisição
+```
+POST https://chatbot-landing-page-2ano.vercel.app/chat
+Content-Type: application/json
 
-## Instalação e Configuração
-### Pré-requisitos
-- Exemplo: Node 20+, Docker, etc.
-
-### Passo a passo
-```bash
-# Clonar o repositório
-git clone <url-do-repositorio>
-
-# Entrar no diretório do projeto
-cd nome-do-projeto
-
-# Instalar dependências
-npm install
-
-# Executar em ambiente local
-npm run dev
+{
+  "usuario": "Olá, o que é a A&U Tech?",
+  "session_id": "<numero-gerado-js>"
+}
+```
+### Resposta
+```
+{
+  "resposta": "A&U Tech é a equipe responsável pelo desenvolvimento do Igesta.\n- *Recomendação*:\nConheça os integrantes da A&U Tech e suas contribuições para o projeto.",
+  "session_id": "<numero-gerado-js>"
+}
+```
