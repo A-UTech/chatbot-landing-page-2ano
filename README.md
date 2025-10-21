@@ -36,4 +36,3 @@ Content-Type: application/json
   "resposta": "A&U Tech é a equipe responsável pelo desenvolvimento do Igesta.\n- *Recomendação*:\nConheça os integrantes da A&U Tech e suas contribuições para o projeto.",
   "session_id": "<numero-gerado-js>"
 }
-```
