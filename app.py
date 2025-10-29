@@ -15,6 +15,11 @@ from langchain.memory import ChatMessageHistory
 from langchain.prompts.few_shot import FewShotChatMessagePromptTemplate
 from langchain.memory.chat_message_histories import RedisChatMessageHistory
 import redis
+from datetime import datetime 
+from zoneinfo import ZoneInfo
+from operator import itemgetter
+from langchain_core.runnables import RunnablePassthrough 
+from faq_tools import get_faq_context
 
 load_dotenv()
 
@@ -51,7 +56,7 @@ def get_session_history(session_id) -> ChatMessageHistory:
 
 
 llm = ChatGoogleGenerativeAI(
-    model="gemini-2.5-flash",
+    model="gemini-2.0-flash",
     temperature=0.7,
     top_p=0.95,
     google_api_key=GEMINI_API_KEY
@@ -78,19 +83,18 @@ system_prompt = ("system",
              - Seja empático e responsável.
              - Nunca use palavras ofensivas nas respostas.
              - Procure devolver respostas práticas e objetivas, dando detalhes apenas até o ponto que permita a compreensão do usuário.
-             - Nunca invente informações, sempre consulte os dados disponíveis.
+             - **PRIORIDADE MÁXIMA:** A informação do CONTEXTO ADICIONAL é a fonte primária e deve ser usada para responder a pergunta **sempre que for relevante**, mesmo que a informação pareça incompleta.
              - Se receber perguntas fora do escopo de história da empresa ou informações sobre os integrantes, deve responder educadamente que não pode responder.
              - Sempre que possível mantenha interatividade com o usuário, fazendo perguntas de continuação ao final das respostas.
 
 
              ### FORMATO DE RESPOSTA
-             - <sua resposta será 1 frase objetiva sobre a pergunta do usuário em relação ao IGesta.>
-             - *Recomendação*: 
-             <sugira uma ação prática: explorar funcionalidade, conhecer a equipe, entender um diferencial, etc.>
-             - *Acompanhamento* (opcional): 
+             - **<Responda de forma objetiva todas as partes da pergunta do usuário com base no contexto/dados. Use múltiplos pontos se necessário.>**             - *Acompanhamento* (opcional): 
              <quando não houver informações suficientes, houver várias respostas possíveis ou for o usuário precisar de ajuda extra; mostrar mais detalhes, redirecionar para seção do site ou indicar contato com a equipe.>
 
-
+            ### CONTEXTO ADICIONAL DO FAQ
+            Utilize o conteúdo do CONTEXTO ADICIONAL para responder a **todas as partes** da pergunta. **APENAS** se a informação não existir no contexto, admita educadamente.
+            CONTEXTO: {contexto}
 
              ### HISTÓRICO DA CONVERSA
              {chat_history}
@@ -107,20 +111,17 @@ shots = [
     # 1) História do app
     {"human": "Quem criou o Igesta?",
      "ai": "- O Igesta foi desenvolvido pela equipe A&U Tech\n"
-           "- *Recomendação*: \nConheça mais sobre os integrantes e suas funções no projeto.\n"
      },
 
     # 2) Duvida sobre planos
     {"human": "Como funciona o plano negociável? ",
      "ai": "-O plano negocíavel é tratado direto com nossa equipe. \n"
-           "- *Recomendação*: \nEntre em contato com autech.inovacao@gmail.com\n"
      },
 
     # 3) Publico
     {"human": "Qual o público-alvo do aplicativo?",
      "ai": "-O IGesta é voltado para indústrias frigorífica.s\n"
-           "-*Recomendação*: \nExplore nossas funcionalides e entenda como o app funciona nessa área.\n"
-     },
+    },
 
     # 4) Integrantes
     {"human": "Quem são os integrantes da equipe A&U Tech?",
@@ -139,20 +140,22 @@ shots = [
            "- Matheus Rodrigues"
            "- Rafael Barreto"
            "- Samuel Maurício"
-           "- Recomendação: \nConheça mais sobre a perspectiva sobre cada integrante na construção do projeto. \n "
      },
 
     # 5) Nossa missão
     {"human": "Qual a missão do IGesta?",
      "ai": "- Atender a todas as necessidades de gestores e líderes referentes ao controle de dados dentro de indústrias frigoríficas."
-           "- Recomendação: \nVeja a história do IGesta e a jornada do projeto. n\ "
            ""},
 
     # 6) Ambição
     {"human": "Qual a ambição do IGesta",
      "ai": "- Sermos a primeira consulta de apoio na hora de decisões sobre como gerenciar e controlar melhor os dados em indústrias."
-           "- Recomendação: \nVeja todos os produtos que o aplicativo oferece. \n"
+     },
+
+     {"human": "",
+     "ai": "- O Igesta é um aplicativo desenvolvido para auxiliar na gestão e controle de dados em indústrias frigoríficas, oferecendo soluções práticas e eficientes para otimizar processos e melhorar a tomada de decisões."
      }
+
 
 ]
 
@@ -168,10 +171,19 @@ prompt = ChatPromptTemplate.from_messages([
     ("human", "{usuario}")
 ])
 
-base_chain = prompt | llm | StrOutputParser()
+
+chain_core = (
+    RunnablePassthrough.assign(
+        question = itemgetter("usuario"),
+        contexto = lambda x: get_faq_context(x["usuario"])
+    )
+    | prompt | llm | StrOutputParser()
+)
+
+
 
 chain = RunnableWithMessageHistory(
-    base_chain,
+    chain_core,
     get_session_history=get_session_history,
     input_messages_key="usuario",
     history_messages_key="chat_history"
@@ -187,7 +199,7 @@ def chat():
         return jsonify({"error": "Dados não fornecidos ou formato inválido!"}), 400
 
     user_message = data.get("usuario", "")
-    session_id = data.get("session_id")
+    session_id = str(data.get("session_id"))
 
     if not session_id:
         session_id = str(get_next_session_id())
