@@ -11,7 +11,6 @@ from langchain_core.prompts import (
     HumanMessagePromptTemplate,
     AIMessagePromptTemplate)
 from langchain_core.runnables.history import RunnableWithMessageHistory
-from langchain.memory import ChatMessageHistory
 from langchain.prompts.few_shot import FewShotChatMessagePromptTemplate
 from langchain.memory.chat_message_histories import RedisChatMessageHistory
 import redis
@@ -46,7 +45,7 @@ def get_next_session_id():
     return redis_client.incr(SESSION_ID_KEY)
 
 
-def get_session_history(session_id) -> ChatMessageHistory:
+def get_session_history(session_id) -> RedisChatMessageHistory:
     return RedisChatMessageHistory(
         session_id=session_id,
         url=REDIS_URL,
