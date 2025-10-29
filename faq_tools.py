@@ -23,8 +23,3 @@ def get_faq_context(pergunta: str) -> str:
     return results  
 
 
-if __name__ == "__main__":
-    sample_question = "Quais são as habilidades de Rafael Cruz no projeto? E qual é a filosofia da A&U Tech?"
-    context_docs = get_faq_context(sample_question)
-    for i, doc in enumerate(context_docs):
-        print(f"Document {i+1}:\n{doc.page_content}\n")
