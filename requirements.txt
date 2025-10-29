@@ -8,5 +8,6 @@ pydantic
 langchain>=0.2.0
 langchain-core>=0.2.0
 langchain-community>=0.2.0
+langchain-google-memorystore-redis
 langchain-google-genai>=0.1.0
 faiss-cpu>=1.8.0
