@@ -15,8 +15,6 @@ from langchain.memory import ChatMessageHistory
 from langchain.prompts.few_shot import FewShotChatMessagePromptTemplate
 from langchain.memory.chat_message_histories import RedisChatMessageHistory
 import redis
-from datetime import datetime 
-from zoneinfo import ZoneInfo
 from operator import itemgetter
 from langchain_core.runnables import RunnablePassthrough 
 from faq_tools import get_faq_context
