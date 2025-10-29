@@ -1,0 +1,9 @@
+SIMULAÇÃO DO .ENV
+
+GEMINI_API_KEY="Sua Chave API Aqui"
+PDF_PATH="Caminho/Para/o/Seu/PDF"
+REDIS_HOST="Host do Redis"
+REDIS_PORT= <port do redis>
+REDIS_PASSWORD="sua senha"
+REDIS_USER="seu user"
+REDIS_URL = "a URL do seu banco Redis"
