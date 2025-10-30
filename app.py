@@ -1,5 +1,4 @@
 import os
-import uuid
 from dotenv import load_dotenv
 from langchain_core.output_parsers import StrOutputParser
 from flask import Flask, request, jsonify
@@ -58,6 +57,13 @@ llm = ChatGoogleGenerativeAI(
     top_p=0.95,
     google_api_key=GEMINI_API_KEY
 )
+
+llm_juiz = ChatGoogleGenerativeAI(
+    model="gemini-2.0-flash", 
+    temperature=0.0, # Temperatura mais baixa para obter respostas determinísticas ('COERENTE'/'INCOERENTE')
+    google_api_key=GEMINI_API_KEY
+)
+
 
 system_prompt = ("system",
                  """
@@ -186,6 +192,47 @@ chain = RunnableWithMessageHistory(
     history_messages_key="chat_history"
 )
 
+
+
+# --- 2. Prompt do Juiz ---
+system_prompt_juiz = (
+    "system",
+    """
+    Você é um 'Juiz de Coerência'. Sua tarefa é avaliar uma resposta gerada por um assistente especializado no Igesta.
+    O assistente tem a prioridade MÁXIMA de usar o 'CONTEXTO ADICIONAL' fornecido para responder à 'PERGUNTA DO USUÁRIO'.
+    
+    ## INSTRUÇÕES:
+    1.  **Avalie a Coerência e Relevância:** Verifique se a 'RESPOSTA DO ASSISTENTE' utiliza as informações do 'CONTEXTO ADICIONAL' (se houver) e se ela é uma resposta válida para a 'PERGUNTA DO USUÁRIO' no escopo do Igesta (história, ideia, funcionalidades ou desenvolvedores).
+    2.  **Verifique o Escopo:** Respostas que admitam não saber ou que estejam fora do escopo são consideradas coerentes *apenas* se estiverem alinhadas com as regras do assistente original (responder educadamente que não pode responder).
+    3.  **Resultado:**
+        * Se a 'RESPOSTA DO ASSISTENTE' for **coerente, útil e no escopo**, responda **"COERENTE"**.
+        * Caso a 'RESPOSTA DO ASSISTENTE' seja **vazia, genérica demais, claramente incorreta, ou uma alucinação grave** (não suportada pelo contexto nem pelo conhecimento base), responda **"INCOERENTE"** e explique brevemente o motivo.
+        
+    Mantenha sua resposta estritamente como "COERENTE" ou "INCOERENTE <motivo>".
+    """
+)
+
+prompt_juiz = ChatPromptTemplate.from_messages([
+    system_prompt_juiz,
+    ("human", 
+     """
+     PERGUNTA DO USUÁRIO: {pergunta_usuario}
+     
+     CONTEXTO ADICIONAL: {contexto}
+     
+     RESPOSTA DO ASSISTENTE: {resposta_assistente}
+     
+     Análise do Juiz:
+     """)
+])
+
+# --- 3. Chain do Juiz ---
+chain_juiz = (
+    prompt_juiz | llm_juiz | StrOutputParser()
+)
+
+
+
 @app.route("/chat", methods=["POST"])
 def chat():
     if llm is None:
@@ -207,12 +254,34 @@ def chat():
         return jsonify({"error": "A mensagem do usuário está vazia!"}), 400
 
     try:
+        contexto_para_o_juiz = get_faq_context(user_message)
+
         resposta = chain.invoke(
             {"usuario": user_message},
             config={"configurable": {"session_id": session_id}}
 
         )
-        return jsonify({"resposta": resposta, "session_id": session_id})
+
+        analise_juiz = chain_juiz.invoke({
+            "pergunta_usuario": user_message,
+            "contexto": contexto_para_o_juiz, # Passa o contexto recuperado
+            "resposta_assistente": resposta
+        })
+
+
+        if analise_juiz.strip().upper().startswith("COERENTE"):
+            # Resposta considerada válida: Retorna a resposta do Assistente
+            return jsonify({"resposta": resposta, "session_id": session_id})
+        else:
+            # Resposta considerada INCOERENTE: Retorna a mensagem de erro do Juiz
+            mensagem_erro = (
+                "Compreendo perfeitamente sua pergunta, mas infelizmente, com base nas informações disponíveis, "
+                "não consegui gerar uma resposta que fosse totalmente confiável e coerente sobre o Igesta neste momento. "
+                "Para garantir a sua segurança, sugiro reformular a pergunta ou tentar outro tópico."
+            )
+            return jsonify({"resposta": mensagem_erro, "session_id": session_id})
+
+
     except Exception as e:
         print(f"Erro ao consumir a API: {e}")
         return jsonify({"error": "Erro ao processar a solicitação."}), 500
